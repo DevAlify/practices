@@ -3,46 +3,50 @@ package com.praticas.day_one;
 import java.util.Scanner;
 
 public class App {
-    public static void main(String[] args) throws Exception {
-        Scanner c1 = new Scanner(System.in);
-        Integer operacao = 0;
-        Double final_value = 0.0;
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
 
-        System.out.println("Insira o primeiro valor: ");
-        double valor_1 = c1.nextDouble();
-        System.out.println();
+        System.out.print("Primeiro valor: ");
+        double a = scanner.nextDouble();
 
-        System.out.println("Insira o segundo valor: ");
-        double valor_2 = c1.nextDouble();
-        System.out.println();
-        System.out.println("==========================");
-        System.out.println("Insira a operação:");
-        System.out.println("==========================");
-        System.out.println("[1] - Adição");
-        System.out.println("[2] - Subtração");
-        System.out.println("[3] - Multiplicação");
-        System.out.println("[4] - Divisão");
-        operacao = c1.nextInt();
-        c1.close();
-        switch (operacao) {
-            case 1:
-                final_value = valor_1 + valor_2;
-                break;
-            case 2:
-                final_value = valor_1 - valor_2;
-                break;
-            case 3:
-                final_value = valor_1 * valor_2;
-                break;
-            case 4:
-                if (valor_2 == 0)
+        System.out.print("Segundo valor: ");
+        double b = scanner.nextDouble();
+
+        System.out.println("\n[1] Adição  [2] Subtração  [3] Multiplicação  [4] Divisão");
+        int operacao = scanner.nextInt();
+        scanner.close();
+
+        // O yield é usado dentro de um bloco {} no switch expression para dizer qual
+        // valor retornar.
+        // javacase 4 -> {
+        // if (b == 0) throw new ArithmeticException("Divisão por zero");
+        // yield a / b; // "retorna" a / b para o switch expression
+        // }
+        // Pensa assim:
+
+        // Se o case é simples → usa -> direto, sem yield
+        // Se o case precisa de mais de uma linha → abre {} e usa yield no final
+
+        // javadouble resultado = switch (operacao) {
+        // case 1 -> a + b; // simples, sem yield
+        // case 4 -> {
+        // if (b == 0) throw new ArithmeticException("Divisão por zero");
+        // yield a / b; // bloco, precisa de yield
+        // }
+        // };
+
+        double resultado = switch (operacao) {
+            case 1 -> a + b;
+            case 2 -> a - b;
+            case 3 -> a * b;
+            case 4 -> {
+                if (b == 0)
                     throw new ArithmeticException("Divisão por zero");
-                final_value = valor_1 / valor_2;
-                break;
-            default:
-                throw new IllegalArgumentException("Operação inválida: " + operacao);
+                yield a / b;
+            }
+            default -> throw new IllegalArgumentException("Operação inválida: " + operacao);
+        };
 
-        }
-        System.out.println("Resultado: " + final_value);
+        System.out.println("Resultado: " + resultado);
     }
 }
