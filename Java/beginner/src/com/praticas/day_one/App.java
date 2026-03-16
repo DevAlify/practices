@@ -47,6 +47,8 @@ public class App {
             default -> throw new IllegalArgumentException("Operação inválida: " + operacao);
         };
 
-        System.out.println("Resultado: " + resultado);
+        System.out.println("Resultado: " + (int) resultado);
+        // Ou
+        System.out.println(String.format("Resultado: %.0f", resultado));
     }
 }
