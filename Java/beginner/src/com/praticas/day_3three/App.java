@@ -1,4 +1,4 @@
-package com.praticas.day_three;
+package com.praticas.day_3three;
 
 import java.util.ArrayList;
 import java.util.Iterator;

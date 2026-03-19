@@ -1,4 +1,4 @@
-package com.praticas.day_two;
+package com.praticas.day_2two;
 
 import java.text.DecimalFormat;
 import java.util.Scanner;
@@ -12,6 +12,7 @@ public class AppTabuada {
         System.out.print("Digite o número que deseja ver a Tabuada de 10: ");
 
         exibirTabuada(c1.nextLine());
+
         c1.close();
     }
 
