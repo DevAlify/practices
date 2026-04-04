@@ -1,13 +1,15 @@
-package com.example.demo;
+package com.aaspros;
 
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class DemoApplicationTests {
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-	@Test
-	void contextLoads() {
+
+@SpringBootApplication
+class AasprosMain {
+
+	public static void main (String[] args) {
+		SpringApplication.run(AasprosMain.class, args);
 	}
 
 }
