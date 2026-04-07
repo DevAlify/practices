@@ -1,0 +1,66 @@
+name: Claude Code Review
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.java'
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get changed Java files
+        id: changed
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- '*.java' | tr '\n' ' ')
+          echo "files=$CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Build review payload
+        id: payload
+        run: |
+          FILES="${{ steps.changed.outputs.files }}"
+          CONTENT=""
+          for FILE in $FILES; do
+            if [ -f "$FILE" ]; then
+              CONTENT="$CONTENT\n\n### $FILE\n\`\`\`java\n$(cat $FILE)\n\`\`\`"
+            fi
+          done
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Call Claude API
+        id: claude
+        run: |
+          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d '{
+              "model": "claude-haiku-4-5-20251001",
+              "max_tokens": 1024,
+              "messages": [{
+                "role": "user",
+                "content": "Você é um mentor de Java. Faça um code review objetivo dos arquivos abaixo. Aponte bugs, problemas de lógica, complexidade Big-O e sugestões de melhoria. Seja direto e didático.\n\n${{ steps.payload.outputs.content }}"
+              }]
+            }')
+          FEEDBACK=$(echo $RESPONSE | python3 -c "import sys,json; print(json.load(sys.stdin)['content'][0]['text'])")
+          echo "feedback<<EOF" >> $GITHUB_OUTPUT
+          echo "$FEEDBACK" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on commit
+        run: |
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
+            -d "{\"body\": \"## 🤖 Claude Code Review\n\n${{ steps.claude.outputs.feedback }}\"}"
