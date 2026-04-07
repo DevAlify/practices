@@ -15,6 +15,6 @@ public class App {
             // So pra testar
             hm.put(name.charAt(i), 1);
         }
-        System.out.println(hm);
+        System.out.println("Resultado: "+hm);
     }
 }
