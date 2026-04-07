@@ -17,50 +17,69 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Get changed Java files
-        id: changed
+      - name: Get changed Java files and call Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
         run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- '*.java' | tr '\n' ' ')
-          echo "files=$CHANGED" >> $GITHUB_OUTPUT
+          # Pega arquivos Java modificados
+          FILES=$(git diff --name-only HEAD~1 HEAD -- '*.java')
+          
+          if [ -z "$FILES" ]; then
+            echo "Nenhum arquivo Java modificado, pulando review."
+            exit 0
+          fi
 
-      - name: Build review payload
-        id: payload
-        run: |
-          FILES="${{ steps.changed.outputs.files }}"
+          # Monta o conteúdo dos arquivos
           CONTENT=""
           for FILE in $FILES; do
             if [ -f "$FILE" ]; then
               CONTENT="$CONTENT\n\n### $FILE\n\`\`\`java\n$(cat $FILE)\n\`\`\`"
             fi
           done
-          echo "content<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$CONTENT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Call Claude API
-        id: claude
-        run: |
+          # Monta o JSON do prompt com python para evitar problemas de escape
+          PROMPT="Você é um mentor de Java. Faça um code review objetivo dos arquivos abaixo. Aponte bugs, problemas de lógica, complexidade Big-O e sugestões de melhoria. Seja direto e didático.\n\n$CONTENT"
+
+          PAYLOAD=$(python3 -c "
+          import json, sys
+          prompt = sys.argv[1]
+          print(json.dumps({
+            'model': 'claude-haiku-4-5-20251001',
+            'max_tokens': 1024,
+            'messages': [{'role': 'user', 'content': prompt}]
+          }))
+          " "$PROMPT")
+
+          # Chama a API do Claude
           RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-            -H "x-api-key: ${{ secrets.ANTHROPIC_API_KEY }}" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d '{
-              "model": "claude-haiku-4-5-20251001",
-              "max_tokens": 1024,
-              "messages": [{
-                "role": "user",
-                "content": "Você é um mentor de Java. Faça um code review objetivo dos arquivos abaixo. Aponte bugs, problemas de lógica, complexidade Big-O e sugestões de melhoria. Seja direto e didático.\n\n${{ steps.payload.outputs.content }}"
-              }]
-            }')
-          FEEDBACK=$(echo $RESPONSE | python3 -c "import sys,json; print(json.load(sys.stdin)['content'][0]['text'])")
-          echo "feedback<<EOF" >> $GITHUB_OUTPUT
-          echo "$FEEDBACK" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+            -d "$PAYLOAD")
 
-      - name: Comment on commit
-        run: |
+          echo "Response: $RESPONSE"
+
+          # Extrai o feedback
+          FEEDBACK=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          if 'content' in data:
+              print(data['content'][0]['text'])
+          else:
+              print('Erro na API: ' + json.dumps(data))
+          ")
+
+          # Posta como comentário no commit
+          COMMENT=$(python3 -c "
+          import json, sys
+          print(json.dumps({'body': '## 🤖 Claude Code Review\n\n' + sys.argv[1]}))
+          " "$FEEDBACK")
+
           curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Authorization: token $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/commits/${{ github.sha }}/comments \
-            -d "{\"body\": \"## 🤖 Claude Code Review\n\n${{ steps.claude.outputs.feedback }}\"}"
+            "https://api.github.com/repos/$REPO/commits/$SHA/comments" \
+            -d "$COMMENT"
