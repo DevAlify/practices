@@ -12,7 +12,7 @@ public class App {
         String name = scanner.nextLine();
         scanner.close();
         for (int i =0; i<= name.length(); i++){
-            
+            // So pra testar
             hm.put(name.charAt(i), 1);
         }
     }
